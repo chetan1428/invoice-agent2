@@ -1,0 +1,80 @@
+{
+  "invoices": [
+    {
+      "invoice_id": "INV-2024-001",
+      "vendor_name": "Acme Corporation",
+      "vendor_tax_id": "TAX123456789",
+      "invoice_date": "2024-01-15",
+      "due_date": "2024-02-15",
+      "amount": 10000.00,
+      "currency": "USD",
+      "line_items": [
+        {"desc": "Consulting Services", "qty": 10, "unit_price": 500, "total": 5000},
+        {"desc": "Software License", "qty": 1, "unit_price": 5000, "total": 5000}
+      ],
+      "attachments": ["invoice_001.pdf"],
+      "po_number": "PO-2024-001"
+    },
+    {
+      "invoice_id": "INV-2024-002",
+      "vendor_name": "Beta Industries",
+      "vendor_tax_id": "TAX987654321",
+      "invoice_date": "2024-01-20",
+      "due_date": "2024-02-20",
+      "amount": 75000.00,
+      "currency": "USD",
+      "line_items": [
+        {"desc": "Hardware Equipment", "qty": 5, "unit_price": 10000, "total": 50000},
+        {"desc": "Installation Services", "qty": 1, "unit_price": 25000, "total": 25000}
+      ],
+      "attachments": ["invoice_002.pdf", "receipt.jpg"],
+      "po_number": null
+    },
+    {
+      "invoice_id": "INV-2024-003",
+      "vendor_name": "Global Tech Solutions",
+      "vendor_tax_id": "GSTIN29ABCDE1234F1Z5",
+      "invoice_date": "2024-01-25",
+      "due_date": "2024-02-25",
+      "amount": 5500.00,
+      "currency": "USD",
+      "line_items": [
+        {"desc": "Cloud Services - Monthly", "qty": 1, "unit_price": 3000, "total": 3000},
+        {"desc": "Support Package", "qty": 1, "unit_price": 2500, "total": 2500}
+      ],
+      "attachments": ["invoice_003.pdf"],
+      "po_number": "PO-2024-003"
+    },
+    {
+      "invoice_id": "INV-2024-004",
+      "vendor_name": "Office Supplies Inc",
+      "vendor_tax_id": "TAX555666777",
+      "invoice_date": "2024-01-28",
+      "due_date": "2024-02-28",
+      "amount": 1250.00,
+      "currency": "USD",
+      "line_items": [
+        {"desc": "Printer Paper (Box)", "qty": 10, "unit_price": 50, "total": 500},
+        {"desc": "Ink Cartridges", "qty": 5, "unit_price": 100, "total": 500},
+        {"desc": "Office Chairs", "qty": 1, "unit_price": 250, "total": 250}
+      ],
+      "attachments": [],
+      "po_number": "PO-2024-004"
+    },
+    {
+      "invoice_id": "INV-2024-005",
+      "vendor_name": "Premium Catering Services",
+      "vendor_tax_id": "TAX888999000",
+      "invoice_date": "2024-02-01",
+      "due_date": "2024-03-01",
+      "amount": 15000.00,
+      "currency": "USD",
+      "line_items": [
+        {"desc": "Corporate Event Catering", "qty": 1, "unit_price": 12000, "total": 12000},
+        {"desc": "Equipment Rental", "qty": 1, "unit_price": 3000, "total": 3000}
+      ],
+      "attachments": ["invoice_005.pdf", "event_photos.zip"],
+      "po_number": null
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Review - Invoice Processing</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .stat-card .number { font-size: 32px; font-weight: bold; color: #667eea; }
+        .stat-card .label { color: #666; font-size: 14px; margin-top: 5px; }
+        .review-list { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+        .review-header { background: #f8f9fa; padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .review-header h2 { font-size: 18px; color: #333; }
+        .refresh-btn { background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .refresh-btn:hover { background: #5a6fd6; }
+        .review-item { padding: 20px; border-bottom: 1px solid #eee; display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: center; }
+        .review-item:last-child { border-bottom: none; }
+        .review-item:hover { background: #f8f9fa; }
+        .invoice-info h3 { font-size: 16px; color: #333; margin-bottom: 8px; }
+        .invoice-info p { font-size: 13px; color: #666; margin: 3px 0; }
+        .invoice-info .amount { font-size: 20px; font-weight: bold; color: #28a745; }
+        .review-reason { background: #fff3cd; padding: 10px 15px; border-radius: 5px; border-left: 4px solid #ffc107; }
+        .review-reason p { font-size: 13px; color: #856404; }
+        .actions { display: flex; gap: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .btn-accept { background: #28a745; color: white; }
+        .btn-accept:hover { background: #218838; }
+        .btn-reject { background: #dc3545; color: white; }
+        .btn-reject:hover { background: #c82333; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-bottom: 20px; }
+        .modal-content textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; min-height: 100px; }
+        .modal-content input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; }
+        .modal-content label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; border-radius: 5px; color: white; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 1001; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Invoice Human Review</h1>
+        <p>LangGraph Invoice Processing Agent - HITL Dashboard</p>
+    </div>
+    
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number" id="pending-count">-</div>
+                <div class="label">Pending Reviews</div>
+            </div>
+            <div class="stat-card">
+                <div class="number" id="total-amount">-</div>
+                <div class="label">Total Amount ($)</div>
+            </div>
+        </div>
+        
+        <div class="review-list">
+            <div class="review-header">
+                <h2>Pending Reviews</h2>
+                <button class="refresh-btn" onclick="loadPendingReviews()">Refresh</button>
+            </div>
+            <div id="review-items">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="decision-modal">
+        <div class="modal-content">
+            <h3 id="modal-title">Submit Decision</h3>
+            <input type="hidden" id="modal-checkpoint-id">
+            <input type="hidden" id="modal-decision">
+            <label>Reviewer ID:</label>
+            <input type="text" id="reviewer-id" placeholder="Enter your reviewer ID">
+            <label>Notes:</label>
+            <textarea id="decision-notes" placeholder="Add any notes about your decision..."></textarea>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-accept" onclick="submitDecision()">Submit</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        const API_BASE = '/api';
+        
+        async function loadPendingReviews() {
+            try {
+                const response = await fetch(API_BASE + '/human-review/pending');
+                const items = await response.json();
+                
+                document.getElementById('pending-count').textContent = items.length;
+                
+                const totalAmount = items.reduce(function(sum, item) { return sum + item.amount; }, 0);
+                document.getElementById('total-amount').textContent = '$' + totalAmount.toLocaleString();
+                
+                const container = document.getElementById('review-items');
+                
+                if (items.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><h3>All caught up!</h3><p>No pending reviews at the moment.</p></div>';
+                    return;
+                }
+                
+                let html = '';
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    html += '<div class="review-item">';
+                    html += '<div class="invoice-info">';
+                    html += '<h3>' + item.invoice_id + '</h3>';
+                    html += '<p><strong>Vendor:</strong> ' + item.vendor_name + '</p>';
+                    html += '<p class="amount">$' + item.amount.toLocaleString() + '</p>';
+                    html += '<p><small>Created: ' + new Date(item.created_at).toLocaleString() + '</small></p>';
+                    html += '</div>';
+                    html += '<div class="review-reason">';
+                    html += '<p><strong>Reason for Hold:</strong></p>';
+                    html += '<p>' + item.reason_for_hold + '</p>';
+                    html += '</div>';
+                    html += '<div class="actions">';
+                    html += '<button class="btn btn-accept" onclick="openModal(\'' + item.checkpoint_id + '\', \'ACCEPT\')">Accept</button>';
+                    html += '<button class="btn btn-reject" onclick="openModal(\'' + item.checkpoint_id + '\', \'REJECT\')">Reject</button>';
+                    html += '</div>';
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+                showToast('Failed to load reviews', 'error');
+            }
+        }
+        
+        function openModal(checkpointId, decision) {
+            document.getElementById('modal-checkpoint-id').value = checkpointId;
+            document.getElementById('modal-decision').value = decision;
+            document.getElementById('modal-title').textContent = decision === 'ACCEPT' ? 'Accept Invoice' : 'Reject Invoice';
+            document.getElementById('decision-modal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('decision-modal').classList.remove('active');
+            document.getElementById('reviewer-id').value = '';
+            document.getElementById('decision-notes').value = '';
+        }
+        
+        async function submitDecision() {
+            const checkpointId = document.getElementById('modal-checkpoint-id').value;
+            const decision = document.getElementById('modal-decision').value;
+            const reviewerId = document.getElementById('reviewer-id').value || 'anonymous';
+            const notes = document.getElementById('decision-notes').value;
+            
+            try {
+                const response = await fetch(API_BASE + '/human-review/decision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        checkpoint_id: checkpointId,
+                        decision: decision,
+                        reviewer_id: reviewerId,
+                        notes: notes
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Invoice ' + decision.toLowerCase() + 'ed successfully!', 'success');
+                    closeModal();
+                    loadPendingReviews();
+                } else {
+                    const error = await response.json();
+                    showToast(error.detail || 'Failed to submit decision', 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting decision:', error);
+                showToast('Failed to submit decision', 'error');
+            }
+        }
+        
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(function() { toast.classList.remove('show'); }, 3000);
+        }
+        
+        // Load reviews on page load
+        loadPendingReviews();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadPendingReviews, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraph Invoice Processing - Live Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Workflow Pipeline */
+        .pipeline {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .pipeline-title {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+        .stages {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            min-width: 90px;
+            transition: all 0.3s ease;
+        }
+        .stage.pending { background: rgba(255,255,255,0.1); }
+        .stage.running { 
+            background: rgba(255,193,7,0.3); 
+            animation: pulse 1s infinite;
+            box-shadow: 0 0 20px rgba(255,193,7,0.5);
+        }
+        .stage.completed { background: rgba(40,167,69,0.3); }
+        .stage.failed { background: rgba(220,53,69,0.3); }
+        .stage.paused { background: rgba(138,43,226,0.3); }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .stage-icon { font-size: 1.5rem; margin-bottom: 5px; }
+        .stage-name { font-size: 0.7rem; text-align: center; font-weight: 600; }
+        .stage-status { font-size: 0.6rem; opacity: 0.8; }
+        
+        .arrow { color: #00d4ff; font-size: 1.2rem; }
+        
+        /* Stats Cards */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label { font-size: 0.9rem; opacity: 0.7; margin-top: 5px; }
+        
+        /* Logs Panel */
+        .logs-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .log-section {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-title {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: #00d4ff;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+        .log-entry {
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            padding: 5px 10px;
+            margin: 3px 0;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.05);
+        }
+        .log-entry.mcp-common { border-left: 3px solid #28a745; }
+        .log-entry.mcp-atlas { border-left: 3px solid #007bff; }
+        .log-entry.bigtool { border-left: 3px solid #ffc107; }
+        
+        /* Control Panel */
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: white;
+        }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        /* Invoice Info */
+        .invoice-info {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .invoice-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .invoice-field label { font-size: 0.8rem; opacity: 0.7; }
+        .invoice-field value { font-size: 1.1rem; font-weight: 600; display: block; }
+        
+        /* HITL Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        .modal h2 { color: #ffc107; margin-bottom: 20px; }
+        .modal p { margin-bottom: 20px; opacity: 0.8; }
+        .modal-buttons { display: flex; gap: 15px; justify-content: center; }
+        
+        /* Pending Tasks */
+        .pending-task {
+            background: rgba(255,193,7,0.1);
+            border: 1px solid rgba(255,193,7,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 15px;
+            align-items: center;
+        }
+        .pending-task .field { display: block; }
+        .pending-task .field label { font-size: 0.7rem; opacity: 0.6; display: block; }
+        .pending-task .field value { font-size: 0.9rem; font-weight: 600; }
+        .pending-task .actions { display: flex; gap: 8px; }
+        .pending-task .btn { padding: 8px 16px; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧾 LangGraph Invoice Processing Agent</h1>
+        
+        <!-- Control Panel -->
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startWorkflow('match')">▶ Run MATCHED Flow</button>
+            <button class="btn btn-warning" onclick="startWorkflow('fail')">▶ Run FAILED → HITL Flow</button>
+            <button class="btn btn-danger" onclick="resetDashboard()">🔄 Reset</button>
+        </div>
+        
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="currentStage">-</div>
+                <div class="stat-label">Current Stage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="progress">0/12</div>
+                <div class="stat-label">Progress</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="workflowStatus">IDLE</div>
+                <div class="stat-label">Status</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="matchScore">-</div>
+                <div class="stat-label">Match Score</div>
+            </div>
+        </div>
+        
+        <!-- Pipeline Visualization -->
+        <div class="pipeline">
+            <div class="pipeline-title">📊 Workflow Pipeline</div>
+            <div class="stages" id="stagesContainer"></div>
+        </div>
+        
+        <!-- Invoice Info -->
+        <div class="invoice-info" id="invoiceInfo" style="display:none;">
+            <div class="pipeline-title">📄 Invoice Details</div>
+            <div class="invoice-grid">
+                <div class="invoice-field"><label>Invoice ID</label><value id="invId">-</value></div>
+                <div class="invoice-field"><label>Vendor</label><value id="invVendor">-</value></div>
+                <div class="invoice-field"><label>Amount</label><value id="invAmount">-</value></div>
+                <div class="invoice-field"><label>PO Number</label><value id="invPO">-</value></div>
+            </div>
+        </div>
+        
+        <!-- Pending HITL Tasks -->
+        <div class="pipeline" id="pendingSection">
+            <div class="pipeline-title">⏸️ Pending HITL Tasks <span id="pendingCount">(0)</span></div>
+            <div id="pendingTasks">
+                <p style="opacity: 0.6; text-align: center;">No pending tasks. Run demo.py to create HITL checkpoints.</p>
+            </div>
+        </div>
+        
+        <!-- Logs -->
+        <div class="logs-panel">
+            <div class="log-section">
+                <div class="log-title">🔧 MCP Execution Log</div>
+                <div id="mcpLogs"></div>
+            </div>
+            <div class="log-section">
+                <div class="log-title">🛠 Bigtool Selections</div>
+                <div id="bigtoolLogs"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- HITL Modal -->
+    <div class="modal" id="hitlModal">
+        <div class="modal-content">
+            <h2>⏸️ Human Review Required</h2>
+            <p>Match score below threshold. Invoice requires manual approval.</p>
+            <p><strong>Checkpoint ID:</strong> <span id="checkpointId">-</span></p>
+            <div class="modal-buttons">
+                <button class="btn btn-success" onclick="submitDecision('ACCEPT')">✅ ACCEPT</button>
+                <button class="btn btn-danger" onclick="submitDecision('REJECT')">❌ REJECT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stages = [
+            { id: 'intake', name: 'INTAKE', icon: '📥' },
+            { id: 'understand', name: 'UNDERSTAND', icon: '🧠' },
+            { id: 'prepare', name: 'PREPARE', icon: '🛠️' },
+            { id: 'retrieve', name: 'RETRIEVE', icon: '📚' },
+            { id: 'match', name: 'MATCH', icon: '⚖️' },
+            { id: 'checkpoint', name: 'CHECKPOINT', icon: '⏸️' },
+            { id: 'hitl', name: 'HITL', icon: '👨‍💼' },
+            { id: 'reconcile', name: 'RECONCILE', icon: '📘' },
+            { id: 'approve', name: 'APPROVE', icon: '🔄' },
+            { id: 'posting', name: 'POSTING', icon: '🏃' },
+            { id: 'notify', name: 'NOTIFY', icon: '✉️' },
+            { id: 'complete', name: 'COMPLETE', icon: '✅' }
+        ];
+        
+        let currentStageIndex = -1;
+        let workflowMode = 'match';
+        let isPaused = false;
+        
+        function initPipeline() {
+            const container = document.getElementById('stagesContainer');
+            container.innerHTML = stages.map((s, i) => `
+                <div class="stage pending" id="stage-${s.id}">
+                    <div class="stage-icon">${s.icon}</div>
+                    <div class="stage-name">${s.name}</div>
+                    <div class="stage-status">Pending</div>
+                </div>
+                ${i < stages.length - 1 ? '<span class="arrow">→</span>' : ''}
+            `).join('');
+        }
+        
+        function updateStage(index, status) {
+            const stage = stages[index];
+            const el = document.getElementById(`stage-${stage.id}`);
+            el.className = `stage ${status}`;
+            el.querySelector('.stage-status').textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        
+        function addMcpLog(server, ability) {
+            const logs = document.getElementById('mcpLogs');
+            const cls = server === 'COMMON' ? 'mcp-common' : 'mcp-atlas';
+            logs.innerHTML += `<div class="log-entry ${cls}">✅ [${server}] ${ability}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        function addBigtoolLog(capability, tool) {
+            const logs = document.getElementById('bigtoolLogs');
+            logs.innerHTML += `<div class="log-entry bigtool">🔧 ${capability}: ${tool}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        async function runStage(index) {
+            if (index >= stages.length || isPaused) return;
+            
+            currentStageIndex = index;
+            const stage = stages[index];
+            
+            // Update UI
+            updateStage(index, 'running');
+            document.getElementById('currentStage').textContent = stage.name;
+            document.getElementById('progress').textContent = `${index + 1}/12`;
+            document.getElementById('workflowStatus').textContent = 'RUNNING';
+            
+            // Simulate stage execution
+            await sleep(800);
+            
+            // Stage-specific logic
+            switch(stage.id) {
+                case 'intake':
+                    addMcpLog('COMMON', 'validate_schema');
+                    addMcpLog('COMMON', 'persist_invoice');
+                    addBigtoolLog('storage', 'local_fs');
+                    break;
+                case 'understand':
+                    addMcpLog('ATLAS', 'ocr_extract');
+                    addMcpLog('ATLAS', 'parse_line_items');
+                    addBigtoolLog('ocr', 'tesseract');
+                    break;
+                case 'prepare':
+                    addMcpLog('COMMON', 'normalize_vendor');
+                    addMcpLog('ATLAS', 'enrich_vendor');
+                    addMcpLog('COMMON', 'compute_flags');
+                    addBigtoolLog('enrichment', 'vendor_db');
+                    break;
+                case 'retrieve':
+                    addMcpLog('ATLAS', 'fetch_po');
+                    addMcpLog('ATLAS', 'fetch_grn');
+                    addMcpLog('ATLAS', 'fetch_history');
+                    addBigtoolLog('erp_connector', 'mock_erp');
+                    break;
+                case 'match':
+                    addMcpLog('COMMON', 'compute_match_score');
+                    const score = workflowMode === 'match' ? '0.95' : '0.78';
+                    document.getElementById('matchScore').textContent = score;
+                    if (workflowMode === 'fail') {
+                        await sleep(500);
+                        updateStage(index, 'failed');
+                        runStage(index + 1); // Go to checkpoint
+                        return;
+                    }
+                    break;
+                case 'checkpoint':
+                    if (workflowMode === 'match') {
+                        updateStage(index, 'completed');
+                        document.getElementById(`stage-${stage.id}`).querySelector('.stage-status').textContent = 'Skipped';
+                        runStage(index + 2); // Skip to reconcile
+                        return;
+                    }
+                    addMcpLog('COMMON', 'create_checkpoint');
+                    addBigtoolLog('db', 'sqlite');
+                    document.getElementById('checkpointId').textContent = 'CHKPT-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+                    updateStage(index, 'paused');
+                    document.getElementById('workflowStatus').textContent = 'PAUSED';
+                    isPaused = true;
+                    document.getElementById('hitlModal').classList.add('active');
+                    return;
+                case 'hitl':
+                    if (workflowMode === 'match') {
+                        updateStage(index, 'completed');
+                        document.getElementById(`stage-${stage.id}`).querySelector('.stage-status').textContent = 'Skipped';
+                        runStage(index + 1);
+                        return;
+                    }
+                    addMcpLog('ATLAS', 'get_human_decision');
+                    break;
+                case 'reconcile':
+                    addMcpLog('COMMON', 'build_accounting_entries');
+                    break;
+                case 'approve':
+                    addMcpLog('ATLAS', 'apply_approval_policy');
+                    break;
+                case 'posting':
+                    addMcpLog('ATLAS', 'post_to_erp');
+                    addMcpLog('ATLAS', 'schedule_payment');
+                    addBigtoolLog('erp_connector', 'mock_erp');
+                    break;
+                case 'notify':
+                    addMcpLog('ATLAS', 'notify_vendor');
+                    addMcpLog('ATLAS', 'notify_finance_team');
+                    addBigtoolLog('email', 'ses');
+                    break;
+                case 'complete':
+                    addMcpLog('COMMON', 'finalize_workflow');
+                    addBigtoolLog('db', 'sqlite');
+                    document.getElementById('workflowStatus').textContent = 'COMPLETED';
+                    break;
+            }
+            
+            updateStage(index, 'completed');
+            
+            if (index < stages.length - 1) {
+                await sleep(300);
+                runStage(index + 1);
+            }
+        }
+        
+        function startWorkflow(mode) {
+            resetDashboard();
+            workflowMode = mode;
+            
+            // Show invoice info
+            document.getElementById('invoiceInfo').style.display = 'block';
+            document.getElementById('invId').textContent = 'INV-2024-001';
+            document.getElementById('invVendor').textContent = 'Acme Corporation';
+            document.getElementById('invAmount').textContent = '$10,000.00';
+            document.getElementById('invPO').textContent = mode === 'match' ? 'PO-2024-001' : 'None';
+            
+            runStage(0);
+        }
+        
+        function submitDecision(decision) {
+            document.getElementById('hitlModal').classList.remove('active');
+            isPaused = false;
+            
+            if (decision === 'ACCEPT') {
+                updateStage(5, 'completed'); // checkpoint
+                runStage(6); // hitl_decision
+            } else {
+                // REJECT flow - go directly to complete with MANUAL_HANDOFF
+                updateStage(5, 'completed');
+                updateStage(6, 'completed');
+                document.getElementById(`stage-hitl`).querySelector('.stage-status').textContent = 'REJECTED';
+                
+                // Skip reconcile through notify
+                for (let i = 7; i < 11; i++) {
+                    updateStage(i, 'completed');
+                    document.getElementById(`stage-${stages[i].id}`).querySelector('.stage-status').textContent = 'Skipped';
+                }
+                
+                // Complete with MANUAL_HANDOFF
+                updateStage(11, 'running');
+                document.getElementById('currentStage').textContent = 'COMPLETE';
+                document.getElementById('progress').textContent = '12/12';
+                
+                setTimeout(() => {
+                    addMcpLog('COMMON', 'finalize_workflow');
+                    updateStage(11, 'failed');
+                    document.getElementById(`stage-complete`).querySelector('.stage-status').textContent = 'MANUAL_HANDOFF';
+                    document.getElementById('workflowStatus').textContent = 'MANUAL_HANDOFF';
+                }, 800);
+            }
+        }
+        
+        function resetDashboard() {
+            currentStageIndex = -1;
+            isPaused = false;
+            workflowMode = 'match';
+            initPipeline();
+            document.getElementById('currentStage').textContent = '-';
+            document.getElementById('progress').textContent = '0/12';
+            document.getElementById('workflowStatus').textContent = 'IDLE';
+            document.getElementById('matchScore').textContent = '-';
+            document.getElementById('mcpLogs').innerHTML = '';
+            document.getElementById('bigtoolLogs').innerHTML = '';
+            document.getElementById('invoiceInfo').style.display = 'none';
+            document.getElementById('hitlModal').classList.remove('active');
+        }
+        
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        
+        // Initialize
+        initPipeline();
+        loadPendingTasks();
+        
+        // Auto-refresh pending tasks every 5 seconds
+        setInterval(loadPendingTasks, 5000);
+        
+        // Load pending HITL tasks from API
+        async function loadPendingTasks() {
+            try {
+                const response = await fetch('/api/human-review/pending');
+                const tasks = await response.json();
+                
+                document.getElementById('pendingCount').textContent = `(${tasks.length})`;
+                
+                if (tasks.length === 0) {
+                    document.getElementById('pendingTasks').innerHTML = 
+                        '<p style="opacity: 0.6; text-align: center;">No pending tasks. Run demo.py to create HITL checkpoints.</p>';
+                    return;
+                }
+                
+                document.getElementById('pendingTasks').innerHTML = tasks.map(task => `
+                    <div class="pending-task">
+                        <div class="field">
+                            <label>Invoice ID</label>
+                            <value>${task.invoice_id}</value>
+                        </div>
+                        <div class="field">
+                            <label>Vendor</label>
+                            <value>${task.vendor_name}</value>
+                        </div>
+                        <div class="field">
+                            <label>Amount</label>
+                            <value>$${task.amount.toLocaleString()}</value>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-success" onclick="submitRealDecision('${task.checkpoint_id}', 'ACCEPT')">✅ Accept</button>
+                            <button class="btn btn-danger" onclick="submitRealDecision('${task.checkpoint_id}', 'REJECT')">❌ Reject</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load pending tasks:', err);
+            }
+        }
+        
+        // Submit real decision to API
+        async function submitRealDecision(checkpointId, decision) {
+            try {
+                const response = await fetch('/api/human-review/decision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        checkpoint_id: checkpointId,
+                        decision: decision,
+                        reviewer_id: 'dashboard-user',
+                        notes: 'Decision from dashboard'
+                    })
+                });
+                
+                const result = await response.json();
+                alert(`Decision submitted! Next stage: ${result.next_stage}`);
+                loadPendingTasks();
+            } catch (err) {
+                console.error('Failed to submit decision:', err);
+                alert('Failed to submit decision');
+            }
+        }
+    </script>
+</body>
+</html>
